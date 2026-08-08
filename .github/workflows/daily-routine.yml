@@ -9,7 +9,10 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write # required by claude-code-action itself, independent of GH_PAT
 
 jobs:
   run-daily-routine:
