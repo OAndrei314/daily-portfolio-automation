@@ -12,21 +12,31 @@ instead. This repo has no code of its own; it's the scheduler.
 
 ## How it works
 
-- `.github/workflows/daily-routine.yml` runs on a daily `schedule:` cron trigger (plus
-  `workflow_dispatch` for manual runs).
-- A real jitter delay (0-3h, `sleep $(( RANDOM % 10800 ))`) runs as an explicit workflow
-  step *before* Claude Code starts, so the actual commit/PR timestamp on the target repos
-  varies day to day instead of landing at the same minute every time — this is a workflow
-  step, not just an instruction in the prompt, so it can't be skipped by a bad interpretation.
+- `.github/workflows/daily-routine.yml` fires on 6 `schedule:` cron triggers spanning
+  15:00-01:00 UTC (~17:00-03:00 CEST) — plus `workflow_dispatch` for manual/verification runs,
+  which skip all the randomization below and run immediately.
+- Each of the 6 trigger points independently rolls dice on whether it actually does anything
+  (a real workflow step, not just a prompt instruction, so it can't be skipped by a bad
+  interpretation). It uses live GitHub search as shared state across the day's triggers — no
+  database needed: if nothing has landed yet today, this slot has a ~27% chance of being the
+  one that fires (solving for `1-(1-p)^6 = 0.85` across 6 slots); if something already landed
+  today, it has a smaller ~8% chance of producing a rare second push. Net effect: pushes land
+  on ~85% of days (comfortably ≥5 days/week in expectation) at a randomized point in the
+  window, and occasionally twice in one day — without ever needing a single job to sleep for
+  hours (each slot's intra-slot jitter tops out at 100 minutes, well under GitHub's ~6h job
+  timeout).
 - [`anthropics/claude-code-action@v1`](https://github.com/anthropics/claude-code-action)
   then runs a single, self-contained daily-task prompt (see the workflow file for the full
-  text) that: scans live AI news for anything extraordinary, discovers the current state of
-  the portfolio via `gh repo list`, picks the least-recently-touched repo it owns, either
-  extends it with one genuine improvement or founds a brand-new project if that repo is
-  honestly complete, verifies everything with real tests, and opens + merges a real PR.
+  text) that: finds the single hottest thing happening in AI right now, discovers the current
+  state of the portfolio via `gh repo list`, picks the least-recently-touched repo it owns,
+  either extends it with one genuine improvement or founds a brand-new project if that repo is
+  honestly complete (growing this side of the portfolio to 10 projects, then maintaining it
+  there), verifies everything with real tests, and opens + merges a real PR.
 - Cross-repo access (cloning/pushing/creating repos beyond this one) uses a GitHub PAT, not
   the default `GITHUB_TOKEN` — the built-in token is scoped only to the repo a workflow runs
-  in, which isn't enough for a job that rotates across an entire account's repos.
+  in, which isn't enough for a job that rotates across an entire account's repos. The same PAT
+  is also passed as the action's own `github_token` input, which sidesteps the need to install
+  the official Claude GitHub App.
 
 ## Ownership boundary
 
