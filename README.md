@@ -37,7 +37,10 @@ other's way — see the workflow prompt for the exact rule.
 
 ## Required repo secrets
 
-- `ANTHROPIC_API_KEY` — from [console.anthropic.com](https://console.anthropic.com/settings/keys).
+- `CLAUDE_CODE_OAUTH_TOKEN` — authenticates via an existing Claude Pro/Max subscription
+  instead of pay-per-token API billing. Generate it locally with `claude setup-token`
+  (requires an active subscription and its own browser login) and paste the resulting token
+  in as the secret value.
 - `GH_PAT` — a GitHub personal access token (classic, `repo` + `workflow` scopes) so the
   workflow can reach repos beyond this one.
 
