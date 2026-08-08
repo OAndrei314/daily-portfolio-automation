@@ -156,19 +156,33 @@ jobs:
             `Maintained by: claude-actions-daily-routine` to its README so the other two
             automations know to leave it alone.
 
-            Target size: grow your side of the portfolio (repos you own, per the marker above)
-            to 10 genuinely substantive projects, then maintain it at that size. Count how many
-            you currently own before deciding between STEP 3 (extend) and STEP 4 (found new) --
-            below 10, lean toward founding a new project once the least-recently-touched one is
-            genuinely done rather than endlessly polishing; at 10 or above, default to
-            extending existing ones and only found an 11th+ if every single owned repo is
-            honestly complete with nothing left to add.
+            Done signal: every repo you own carries a `Status: Active` or `Status: Complete`
+            line in its README, next to the Maintained-by line. This is the persistent,
+            explicit record of whether a project is still being extended -- don't re-derive
+            completeness from scratch by re-reading the whole codebase every run when the repo
+            already tells you. `Status: Complete` means a past run already concluded, after
+            genuinely reading the code, that there is nothing real left to add -- treat that as
+            settled unless STEP 0's news scan surfaces something that specifically reopens it
+            (e.g. a newly-released model/technique the repo could meaningfully incorporate).
+
+            Target size: maintain 6-8 ACTIVE (`Status: Active`) owned projects at all times --
+            not a fixed count, a band, since finishing one should make room for the next rather
+            than the portfolio growing forever. Before deciding between STEP 3 (extend) and
+            STEP 4 (found new), count your currently-Active owned repos: below 6, prefer
+            founding a new project once the picked repo turns out genuinely done rather than
+            endlessly polishing it; at 8, do not found a new one even if the picked repo is
+            done -- fall back to the next-least-recently-touched Active repo instead; between 6
+            and 8, use ordinary STEP 3 judgment either way. Repos marked Complete stay in the
+            account permanently as a real, visible track record -- they just stop being rotation
+            targets and don't count toward the 6-8 band.
 
             STEP 2 -- Pick a repo to work on. Among repos that are yours (not excluded by
-            STEP 1), sort by `pushedAt` ascending and pick the least-recently-touched one.
-            Clone it (`gh repo clone OAndrei314/<name>`) and actually read its README plus the
-            existing code and tests to understand what it does and its established conventions
-            before touching anything.
+            STEP 1), sort by `pushedAt` ascending. Walk that list in order, reading each one's
+            README (`gh api repos/OAndrei314/<name>/readme --jq '.content' | base64 -d`, no need
+            to clone yet) until you find the first one that is NOT `Status: Complete` -- that's
+            today's target. Clone it (`gh repo clone OAndrei314/<name>`) and actually read the
+            rest of its README plus the existing code and tests to understand what it does and
+            its established conventions before touching anything.
 
             STEP 3 -- Decide: extend it, or is it done? Look for a genuine, well-scoped
             improvement: the repo's own "Status / next steps" section, an edge case not
@@ -177,13 +191,18 @@ jobs:
             a newly-released model/technique worth incorporating. If you find one, implement
             it there (skip to STEP 5). If, after actually reading the code carefully, there is
             no genuine improvement left to make -- the project is honestly complete, not just
-            momentarily short on ideas -- do NOT force something artificial in. Instead move to
-            STEP 4 and start a new project instead (but see the Target size rule in STEP 1
-            first). Also go straight to STEP 4 if the least-recently-touched repo turns out to
-            be un-clonable or broken beyond a small fix.
+            momentarily short on ideas -- do NOT force something artificial in. Instead: flip
+            that repo's README to `Status: Complete`, write one honest paragraph in its "Status
+            / next steps" section explaining specifically why it's done (this is itself a real,
+            valuable change -- a clear completion record, not filler), commit and push that
+            small doc-only change directly (no PR needed for a status flip alone), then move to
+            STEP 4 and start a new project instead (but check the Target size band in STEP 1
+            first -- at 8 Active repos already, pick the next-least-recently-touched Active repo
+            from STEP 2 instead of founding). Also go straight to STEP 4 if the
+            least-recently-touched repo turns out to be un-clonable or broken beyond a small fix.
 
             STEP 4 -- Start a new project (only when STEP 3 concluded the picked repo is
-            genuinely done, and the Target size rule in STEP 1 says to found rather than keep
+            genuinely done, and the Target size band in STEP 1 says to found rather than keep
             extending). Pick ONE new project idea grounded in either (a) what you actually
             found in STEP 0's live news scan, (b) a current, real AI/ML/infra trend more
             generally -- the Model Context Protocol and agent tool-use, local inference stacks
@@ -201,10 +220,12 @@ jobs:
             this portfolio (match them, don't reinvent):
             - README.md explaining why the project exists, how it works, a quickstart, an
               honest results section with real numbers you actually measured -- never
-              fabricated -- a genuine "Status / next steps" section, and the
-              `Maintained by: claude-actions-daily-routine` marker line. If inspired by the
-              owner's real prior work, state plainly it's a from-scratch synthetic recreation
-              with no proprietary data/algorithms/hardware involved.
+              fabricated -- a genuine "Status / next steps" section, the
+              `Maintained by: claude-actions-daily-routine` marker line, and a
+              `Status: Active` marker line (see the Done signal rule in STEP 1 -- this is what
+              future runs, and the weekly report, read to know it's still a live project). If
+              inspired by the owner's real prior work, state plainly it's a from-scratch
+              synthetic recreation with no proprietary data/algorithms/hardware involved.
             - LICENSE -- MIT, copyright "Andrei", year 2026.
             - .gitignore appropriate for the stack.
             - requirements.txt (+ requirements-dev.txt with `-r requirements.txt` plus
@@ -246,4 +267,5 @@ jobs:
             End your summary with: a recap of STEP 0's news scan and whether it influenced
             today's pick, which repo you worked on (existing or brand new, and why), what you
             changed and why it's a real improvement rather than filler, whether tests passed,
-            and the PR URL (merged or left open).
+            the PR URL (merged or left open), and if you flipped any repo to `Status: Complete`
+            today, say which one and why.
