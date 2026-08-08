@@ -28,22 +28,42 @@ instead. This repo has no code of its own; it's the scheduler.
 - [`anthropics/claude-code-action@v1`](https://github.com/anthropics/claude-code-action)
   then runs a single, self-contained daily-task prompt (see the workflow file for the full
   text) that: finds the single hottest thing happening in AI right now, discovers the current
-  state of the portfolio via `gh repo list`, picks the least-recently-touched repo it owns,
-  either extends it with one genuine improvement or founds a brand-new project if that repo is
-  honestly complete (growing this side of the portfolio to 10 projects, then maintaining it
-  there), verifies everything with real tests, and opens + merges a real PR.
+  state of the portfolio via `gh repo list`, picks the least-recently-touched repo it owns
+  that isn't marked done, either extends it with one genuine improvement or founds a
+  brand-new project if that repo is honestly complete, verifies everything with real tests,
+  and opens + merges a real PR.
 - Cross-repo access (cloning/pushing/creating repos beyond this one) uses a GitHub PAT, not
   the default `GITHUB_TOKEN` — the built-in token is scoped only to the repo a workflow runs
   in, which isn't enough for a job that rotates across an entire account's repos. The same PAT
   is also passed as the action's own `github_token` input, which sidesteps the need to install
   the official Claude GitHub App.
 
-## Ownership boundary
+## Ownership boundary and the Status signal
 
 A second, independent automation (Codex-based, running locally via Windows Task Scheduler)
 also contributes to this account, on a disjoint set of repos. Both sides check for and set a
 `Maintained by: <agent>-daily-routine` marker line in each repo's README to stay out of each
 other's way — see the workflow prompt for the exact rule.
+
+Each repo this automation owns also carries a `Status: Active` / `Status: Complete` marker
+next to that line — a persistent, explicit "is this project still being extended" signal, so
+the daily run doesn't have to re-derive completeness from scratch by re-reading a whole
+codebase every time. The rotation target is a **6-8 Active-project band**, not a fixed count:
+below 6, a genuinely-done repo gets flipped to `Status: Complete` (with an honest one-paragraph
+justification) and a new project is founded to replace it; at 8, existing projects keep getting
+extended instead. Completed repos stay in the account permanently as a real track record — they
+just stop being rotation targets.
+
+## Weekly local report
+
+`local/weekly-report.ps1` is a separate, deliberately non-agentic piece: a deterministic script
+(no LLM call, so it's instant and free) that pulls every PR merged across the whole
+`OAndrei314` account in the trailing 7 days via `gh search prs` and renders it to a local HTML
+file. It exists because the cloud workflow above runs on a GitHub-hosted runner, which has no
+access to this machine's disk — genuinely local output needs something that actually runs
+locally. It's registered as a weekly Windows Scheduled Task (`PortfolioWeeklyReport`, Mondays
+08:00) and writes to `~/Documents/github_projects/weekly-reports/latest.html` (plus a dated
+copy per run) — open that file directly in a browser, no server involved.
 
 ## Required repo secrets
 
