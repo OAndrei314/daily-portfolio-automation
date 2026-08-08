@@ -93,8 +93,16 @@ jobs:
             Bar to hit: every change should be at the caliber that would hold up in a
             technical interview loop for a senior/staff AI engineering role at a top-tier
             Silicon Valley lab -- the kind of concrete, rigorous, honestly-evaluated work that
-            actually strengthens a strong-comp offer case, not resume padding. Your output
-            becomes a real, visible commit and PR on a real public GitHub profile. Do NOT
+            actually strengthens a strong-comp offer case, not resume padding. This is a
+            private quality bar for your own judgment -- it must never appear as text in a
+            README or commit. Do NOT add sections like "Money Thesis," "Interview Hook," or
+            any other language that talks about salary, hiring, or positioning the repo for an
+            evaluator -- that reads as exactly the kind of resume-gaming a real hiring manager
+            distrusts, and it's a real mistake this automation has already made once (caught
+            and fixed 2026-08-09). A README explains the engineering: what the project does,
+            why it's a genuinely interesting problem, how it works, and what you honestly
+            measured. Let the work itself clear the bar; never narrate that it's trying to.
+            Your output becomes a real, visible commit and PR on a real public GitHub profile. Do NOT
             create hollow, trivial, or filler changes made only to produce a commit (no
             whitespace tweaks, no meaningless comment additions, no touching a timestamp file
             just to have a diff). Every change must add real value: a new test case that
