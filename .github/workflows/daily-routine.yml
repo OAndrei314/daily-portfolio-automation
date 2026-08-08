@@ -1,0 +1,199 @@
+name: Daily Portfolio Contribution
+
+on:
+  schedule:
+    # 07:13 UTC daily (~09:13 Europe/Berlin). Off the :00/:05 marks on purpose --
+    # scheduled workflows across all of GitHub cluster at round minutes, which both
+    # adds queueing delay and makes the fire time itself an automation tell.
+    - cron: "13 7 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  run-daily-routine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330 # 3h jitter + real work, comfortably under GitHub's 6h default
+    steps:
+      - name: Random jitter delay (0-3h)
+        # A real workflow step, not just an instruction to the model -- a commit landing
+        # at the exact same minute every day is an obvious automation tell, and this can't
+        # be skipped by a bad interpretation the way a prompt instruction could be.
+        run: |
+          DELAY=$(( RANDOM % 10800 ))
+          echo "Sleeping ${DELAY}s before starting today's run"
+          sleep "$DELAY"
+
+      - name: Configure git + gh for cross-repo access
+        # The default GITHUB_TOKEN is scoped only to this repo, which isn't enough for a
+        # job that needs to clone/push/create-repo across the whole OAndrei314 account.
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh auth status
+          gh auth setup-git
+          git config --global user.name "OAndrei314"
+          git config --global user.email "56999057+OAndrei314@users.noreply.github.com"
+
+      - uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --model claude-sonnet-5
+            --allowedTools Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch
+            --max-turns 200
+          prompt: |
+            You are doing one day's worth of genuine, substantive open-source contribution
+            work for the GitHub user OAndrei314's portfolio of AI/ML/hardware research
+            projects, as part of a recurring daily GitHub Actions workflow that runs with no
+            human in the loop. A random 0-3h jitter has already happened as a prior workflow
+            step, so don't add another delay yourself -- start working immediately.
+
+            Your output becomes a real, visible commit and PR on a real public GitHub
+            profile -- it must reflect genuine engineering judgment and be something the
+            repo owner could confidently explain in a technical interview. Do NOT create
+            hollow, trivial, or filler changes made only to produce a commit (no whitespace
+            tweaks, no meaningless comment additions, no touching a timestamp file just to
+            have a diff). Every change must add real value: a new test case that catches
+            something genuinely untested, a real feature or improvement, a genuine bugfix, a
+            meaningful documentation improvement, or an extended experiment/benchmark with
+            real, honestly-reported results (if a result looks suspiciously perfect or
+            suspiciously bad, investigate before reporting it, don't just write it down).
+
+            STEP 0 -- Scan the freshest AI news, every single day, before deciding what to
+            work on. Your own knowledge has a training cutoff and can be stale -- do not
+            rely on it alone for what's "current." Use WebSearch across several distinct
+            queries and multiple kinds of sources, rotating your angle day to day rather
+            than repeating the same query: (a) direct release-tracking queries like "open
+            weight model release [current month year]" or "new open source LLM release this
+            week"; (b) official sources -- lab/company blogs and release pages for
+            Zhipu/GLM, DeepSeek, Moonshot/Kimi, Alibaba/Qwen, Meta/Llama, Mistral, NVIDIA
+            (Nemotron), Google (Gemma), Microsoft (Phi), and any other major open-weight
+            publisher; (c) general AI news outlets (TechCrunch AI, The Verge AI, Ars
+            Technica, VentureBeat AI) and aggregators (Hacker News front page,
+            r/LocalLLaMA); (d) trackers -- Hugging Face trending models, the LMSYS/Chatbot
+            Arena leaderboard, recent arXiv cs.CL/cs.LG papers. Use WebFetch to actually
+            read promising hits, not just titles/snippets.
+
+            You're specifically looking for anything EXTRAORDINARY -- a new frontier-class
+            open-weight model, a surprising benchmark leap, a genuinely novel technique
+            rapidly gaining adoption, or a major AI-datacenter/infra announcement (power,
+            interconnect, silicon photonics, etc., given the owner's hardware background) --
+            as well as just generally confirming what the current state of the open-weight
+            landscape actually is right now, since a hardcoded trend list would go stale
+            within weeks. Let this scan actually change what you do that day:
+            - If something extraordinary was released very recently (same week), prefer
+              work that engages with it directly: add it as a provider/model option
+              somewhere it fits in an existing repo, extend a benchmark/eval to cover it, or
+              -- if nothing existing fits -- let it be the seed for STEP 4's new-project idea
+              instead of a generic pick.
+            - Otherwise, use what you learned to keep any trend references in your work
+              accurate to the actual current landscape, not to your static training
+              knowledge.
+            - Briefly note in your final summary what you searched and what you found, even
+              on days it doesn't change your pick.
+
+            STEP 1 -- Discover the current portfolio, and know which part of it is yours.
+            Run `gh repo list OAndrei314 --limit 100 --json name,description,pushedAt` to
+            get the live list of repos (do NOT rely on a hardcoded list -- the portfolio
+            grows over time). IMPORTANT: two other automations also contribute to this same
+            GitHub account on their own schedules -- one Claude-based (cloud), one
+            Codex-based (local). Stay off their repos. Known as of 2026-08-08: the
+            Claude-cloud side owns open-weight-eval-arena, optical-fault-localization-ml,
+            rl-hardware-calibration-lab, mcp-telemetry-server, local-inference-bench,
+            thermal-acoustic-optimizer. The Codex side owns ai-infra-optics-digest,
+            ai-factory-optical-twin, tinyml-quantized-telemetry-bench,
+            silicon-photonics-telemetry-monitor, firmware-validation-agent. This repo
+            (daily-portfolio-automation) is infrastructure, not a rotation target -- never
+            pick it as today's project. Also exclude obviously personal/unrelated repos
+            (course projects, empty-description repos, etc). Going forward, also exclude any
+            repo whose README contains a `Maintained by: <something>-daily-routine` line
+            that isn't yours, and when you create a new repo, add
+            `Maintained by: claude-actions-daily-routine` to its README so the other two
+            automations know to leave it alone.
+
+            STEP 2 -- Pick a repo to work on. Among repos that are yours (not excluded by
+            STEP 1), sort by `pushedAt` ascending and pick the least-recently-touched one.
+            Clone it (`gh repo clone OAndrei314/<name>`) and actually read its README plus
+            the existing code and tests to understand what it does and its established
+            conventions before touching anything.
+
+            STEP 3 -- Decide: extend it, or is it done? Look for a genuine, well-scoped
+            improvement: the repo's own "Status / next steps" section, an edge case not
+            covered by tests, a rough spot in the code, a benchmark/experiment that could be
+            honestly extended with one more real configuration or data point, or (per STEP
+            0) a newly-released model/technique worth incorporating. If you find one,
+            implement it there (skip to STEP 5). If, after actually reading the code
+            carefully, there is no genuine improvement left to make -- the project is
+            honestly complete, not just momentarily short on ideas -- do NOT force something
+            artificial in. Instead move to STEP 4 and start a new project instead. Also go
+            straight to STEP 4 if the least-recently-touched repo turns out to be
+            un-clonable or broken beyond a small fix.
+
+            STEP 4 -- Start a new project (only when STEP 3 concluded the picked repo is
+            genuinely done). Pick ONE new project idea grounded in either (a) what you
+            actually found in STEP 0's live news scan, (b) a current, real AI/ML/infra trend
+            more generally -- the Model Context Protocol and agent tool-use, local inference
+            stacks (Ollama/vLLM/llama.cpp/MLX), mechanistic interpretability, multi-agent
+            evaluation, or datacenter/AI-infra power and interconnect trends -- or (c) the
+            repo owner's real engineering background: embedded AI/firmware for
+            silicon-photonics optical modules, RL for hardware validation/calibration,
+            coherent-optical fault localization, telemetry/signal-processing analysis,
+            thermal/acoustic/power optimization. Compare against the full STEP 1 repo list
+            (all three automations') and pick something that is NOT a close duplicate of
+            what's already there. Keep the portfolio a balanced mix.
+
+            Scaffold the new project with EXACTLY the conventions already established across
+            this portfolio (match them, don't reinvent):
+            - README.md explaining why the project exists, how it works, a quickstart, an
+              honest results section with real numbers you actually measured -- never
+              fabricated -- a genuine "Status / next steps" section, and the
+              `Maintained by: claude-actions-daily-routine` marker line. If inspired by the
+              owner's real prior work, state plainly it's a from-scratch synthetic
+              recreation with no proprietary data/algorithms/hardware involved.
+            - LICENSE -- MIT, copyright "Andrei", year 2026.
+            - .gitignore appropriate for the stack.
+            - requirements.txt (+ requirements-dev.txt with `-r requirements.txt` plus
+              `pytest>=8.0`).
+            - pyproject.toml with a [project] table AND, critically, a [build-system] table
+              (`requires = ["setuptools>=68"]`, `build-backend = "setuptools.build_meta"`)
+              plus [tool.setuptools] `packages = ["<your_package_name>"]`, plus
+              [tool.pytest.ini_options] `testpaths = ["tests"]`.
+            - tests/ -- real tests that pass, zero network access, zero API keys.
+            - .github/workflows/ci.yml on push/PR across two Python versions, steps in
+              exactly this order: `pip install -r requirements-dev.txt`, then
+              `pip install -e .`, then `pytest -v`. Do not omit `pip install -e .`.
+            - Source in a proper package directory, with a CLI entry point where sensible.
+            - Git workflow: `gh repo create OAndrei314/<name> --public --description "..."`,
+              commit README+LICENSE+.gitignore alone to `main` first, then the real
+              implementation on `feat/<short-name>-v1`.
+
+            CI LESSON (learned the hard way 2026-08-07, do not repeat it): bare `pytest -v`
+            (what CI runs) does NOT add the repo root to `sys.path`, unlike
+            `python -m pytest` -- so if you add [build-system]/[tool.setuptools] but never
+            run `pip install -e .` in CI, every test fails with `ModuleNotFoundError` even
+            though it passes locally under `python -m pytest`. Verify locally with the exact
+            bare `pytest -v` CI will run, after `pip install -e .`, before ever pushing.
+
+            STEP 5 -- Verify, commit, ship. Actually run the test suite
+            (`pip install -r requirements-dev.txt` then `pip install -e .` then bare
+            `pytest -v`) and confirm it passes. Add/update tests for anything you change. If
+            you can't get a change working and verified, don't commit it -- fall back to a
+            smaller improvement, or treat it as STEP 3's "genuinely done" case. Commit with a
+            real, specific, honest message matching the repo's existing git log style. Push
+            and open a PR into `main` with `gh pr create --fill`. Wait for CI with
+            `gh pr checks --watch` (reasonable timeout, e.g. 10 minutes) and merge only if it
+            passes, with `gh pr merge --squash --delete-branch`. If CI fails or doesn't
+            finish in time, leave the PR open and unmerged and say so clearly -- do not
+            force-merge.
+
+            If `gh auth status` fails or pushing fails, do not attempt workarounds or
+            fabricate output -- report that plainly and stop.
+
+            End your summary with: a recap of STEP 0's news scan and whether it influenced
+            today's pick, which repo you worked on (existing or brand new, and why), what
+            you changed and why it's a real improvement rather than filler, whether tests
+            passed, and the PR URL (merged or left open).
