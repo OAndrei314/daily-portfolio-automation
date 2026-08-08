@@ -20,6 +20,9 @@ jobs:
         # A real workflow step, not just an instruction to the model -- a commit landing
         # at the exact same minute every day is an obvious automation tell, and this can't
         # be skipped by a bad interpretation the way a prompt instruction could be.
+        # Skipped on manual workflow_dispatch runs (testing/verification) so those aren't
+        # stuck waiting on a delay that only matters for the daily cron's timing pattern.
+        if: github.event_name == 'schedule'
         run: |
           DELAY=$(( RANDOM % 10800 ))
           echo "Sleeping ${DELAY}s before starting today's run"
