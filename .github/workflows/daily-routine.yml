@@ -46,6 +46,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         with:
+          github_token: ${{ secrets.GH_PAT }} # avoids requiring the official Claude GitHub App install
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: |
             --model claude-sonnet-5
