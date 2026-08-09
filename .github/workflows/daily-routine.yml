@@ -2,17 +2,20 @@ name: Daily Portfolio Contribution
 
 on:
   schedule:
-    # Six trigger points spanning 15:00-01:00 UTC (~17:00-03:00 CEST) so a push can land
-    # anywhere across that window instead of at one fixed minute every day. Each trigger
-    # independently rolls dice (see the gate step) on whether it actually does anything --
-    # most trigger points are no-ops. This also sidesteps GitHub's ~6h job timeout: no
-    # single job ever sleeps more than ~100min, unlike one long jitter sleep would.
-    - cron: "0 15 * * *"
-    - cron: "0 17 * * *"
-    - cron: "0 19 * * *"
-    - cron: "0 21 * * *"
-    - cron: "0 23 * * *"
-    - cron: "0 1 * * *"
+    # Six trigger points spanning ~15:00-01:00 UTC (~17:00-03:00 CEST) so a push can land
+    # anywhere across that window instead of at one fixed minute every day. Deliberately
+    # off the :00 mark on every single one -- firing exactly on the hour, six times a day,
+    # every day, is itself an automation tell (and round minutes are when GitHub's own
+    # scheduler queue is most congested). Each trigger independently rolls dice (see the
+    # gate step) on whether it actually does anything -- most trigger points are no-ops.
+    # This also sidesteps GitHub's ~6h job timeout: no single job ever sleeps more than
+    # ~100min, unlike one long jitter sleep across the whole window would.
+    - cron: "11 15 * * *"
+    - cron: "38 17 * * *"
+    - cron: "24 19 * * *"
+    - cron: "47 21 * * *"
+    - cron: "3 23 * * *"
+    - cron: "29 1 * * *"
   workflow_dispatch: {}
 
 permissions:

@@ -12,9 +12,10 @@ instead. This repo has no code of its own; it's the scheduler.
 
 ## How it works
 
-- `.github/workflows/daily-routine.yml` fires on 6 `schedule:` cron triggers spanning
-  15:00-01:00 UTC (~17:00-03:00 CEST) — plus `workflow_dispatch` for manual/verification runs,
-  which skip all the randomization below and run immediately.
+- `.github/workflows/daily-routine.yml` fires on 6 `schedule:` cron triggers at off-round
+  minutes spanning ~15:00-01:00 UTC (15:11, 17:38, 19:24, 21:47, 23:03, 01:29 → roughly
+  17:11-03:29 CEST) — plus `workflow_dispatch` for manual/verification runs, which skip all
+  the randomization below and run immediately.
 - Each of the 6 trigger points independently rolls dice on whether it actually does anything
   (a real workflow step, not just a prompt instruction, so it can't be skipped by a bad
   interpretation). It uses live GitHub search as shared state across the day's triggers — no
