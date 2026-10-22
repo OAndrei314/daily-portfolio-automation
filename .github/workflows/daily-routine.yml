@@ -2,21 +2,19 @@ name: Daily Portfolio Contribution
 
 on:
   schedule:
-    # Six trigger points spanning ~15:00-01:00 UTC (~17:00-03:00 CEST) so a push can land
-    # anywhere across that window instead of at one fixed minute every day. Deliberately
-    # off the :00 mark on every single one -- firing exactly on the hour, six times a day,
-    # every day, is itself an automation tell (and round minutes are when GitHub's own
-    # scheduler queue is most congested). Each trigger independently rolls dice (see the
-    # gate step) on whether it actually does anything -- most trigger points are no-ops.
-    # This also sidesteps GitHub's ~6h job timeout: no single job ever sleeps more than
-    # ~100min, unlike one long jitter sleep across the whole window would.
+    # One attempt every day, at 17:11 CEST / 16:11 CET.
     - cron: "11 15 * * *"
-    - cron: "38 17 * * *"
-    - cron: "24 19 * * *"
-    - cron: "47 21 * * *"
-    - cron: "3 23 * * *"
-    - cron: "29 1 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      project_mode:
+        description: "Create a new project now, or follow the daily rotation"
+        type: choice
+        default: auto
+        options: [auto, new]
+
+concurrency:
+  group: daily-portfolio
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -27,45 +25,13 @@ permissions:
 jobs:
   run-daily-routine:
     runs-on: ubuntu-latest
-    timeout-minutes: 180 # up to ~100min intra-slot jitter + real work, comfortably under GitHub's 6h cap
+    timeout-minutes: 120
     steps:
-      - name: Randomized timing + skip gate
-        # Real workflow logic, not just an instruction to the model -- this can't be skipped
-        # by a bad interpretation the way a prompt instruction could be. Uses live GitHub
-        # search as shared state across today's 6 independent trigger points (no database
-        # needed): if nothing has landed yet today, this slot has a moderate chance of being
-        # the one that does; if something already landed today, this slot has a small chance
-        # of producing a rare second push. Solving 1-(1-p)^6=0.85 gives p~=27% per slot when
-        # nothing has fired yet today, which puts the overall daily-push rate at ~85% --
-        # comfortably >=5 days/week in expectation, while still sometimes skipping a whole
-        # day and sometimes producing two pushes in one day.
-        # Skipped entirely on manual workflow_dispatch runs (testing/verification).
-        if: github.event_name == 'schedule'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          TODAY=$(date -u +%F)
-          ALREADY=$(gh api search/issues -f q="user:OAndrei314 is:pr is:merged merged:${TODAY}" --jq '.total_count' 2>/dev/null || echo 0)
-          if [ "$ALREADY" -gt 0 ]; then
-            THRESHOLD=8   # already pushed today -- rare bonus second push
-          else
-            THRESHOLD=27  # nothing yet today -- moderate per-slot chance
-          fi
-          ROLL=$(( RANDOM % 100 ))
-          if [ "$ROLL" -ge "$THRESHOLD" ]; then
-            echo "Skipping this trigger (already_merged_today=$ALREADY roll=$ROLL threshold=$THRESHOLD)"
-            echo "SKIP=true" >> "$GITHUB_ENV"
-            exit 0
-          fi
-          echo "Proceeding this trigger (already_merged_today=$ALREADY roll=$ROLL threshold=$THRESHOLD)"
-          DELAY=$(( RANDOM % 6000 ))
-          echo "Sleeping ${DELAY}s within this slot before starting"
-          sleep "$DELAY"
+      - uses: actions/checkout@v4
 
       - name: Configure git + gh for cross-repo access
         # The default GITHUB_TOKEN is scoped only to this repo, which isn't enough for a
         # job that needs to clone/push/create-repo across the whole OAndrei314 account.
-        if: env.SKIP != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
@@ -75,9 +41,10 @@ jobs:
           git config --global user.email "56999057+OAndrei314@users.noreply.github.com"
 
       - uses: anthropics/claude-code-action@v1
-        if: env.SKIP != 'true'
+        id: portfolio
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
+          PROJECT_MODE: ${{ inputs.project_mode || 'auto' }}
         with:
           github_token: ${{ secrets.GH_PAT }} # avoids requiring the official Claude GitHub App install
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -89,9 +56,16 @@ jobs:
             You are doing one day's worth of genuine, substantive open-source contribution
             work for the GitHub user OAndrei314's portfolio of AI/ML/hardware research
             projects, as part of a recurring GitHub Actions workflow that runs with no human
-            in the loop. A randomized timing gate (which slot fired, plus intra-slot jitter)
-            already happened as a prior workflow step, so don't add another delay yourself --
-            start working immediately.
+            in the loop. Start immediately. Run `printenv PROJECT_MODE` to read the mode.
+
+            NEW-PROJECT CADENCE (supersedes the later active-project cap): if PROJECT_MODE is
+            new, found one new project in this run. In auto mode, inspect createdAt for the
+            repos you own; if none was created in the trailing seven days, found one new
+            project. Otherwise extend an existing project. Compare against every account
+            repo to avoid duplicates. The 6-8 active band is a preference, not a veto on
+            this cadence. Never mark unfinished projects complete just to satisfy the band.
+            A new project must include working implementation, offline tests, example input
+            and output, and passing CI. A scaffold or research note alone is not completion.
 
             Bar to hit: every change should be at the caliber that would hold up in a
             technical interview loop for a senior/staff AI engineering role at a top-tier
@@ -280,3 +254,15 @@ jobs:
             changed and why it's a real improvement rather than filler, whether tests passed,
             the PR URL (merged or left open), and if you flipped any repo to `Status: Complete`
             today, say which one and why.
+
+      - name: Diagnose agent failure
+        if: failure() && steps.portfolio.outputs.execution_file != ''
+        env:
+          EXECUTION_FILE: ${{ steps.portfolio.outputs.execution_file }}
+        run: python scripts/diagnose_failure.py
+
+      - name: Record published work
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: python scripts/record_run.py
